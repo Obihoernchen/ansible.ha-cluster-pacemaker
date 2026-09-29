@@ -1,7 +1,7 @@
 ---
 - name: Generate random ID for this cluster deployment
   set_fact:
-    rand_id: "{{ 1024 | random }}"
+    rand_id: "{{ 1024 | random | string }}"
   run_once: true
   changed_when: false
   check_mode: false
@@ -79,7 +79,7 @@
       {{ hostvars[item]['ring0_ip'] }}
       {{ hostvars[item][cluster_hostname_fact] }}
     mode: '0644'
-  with_items: "{{ play_hosts }}"
+  with_items: "{{ ansible_play_batch }}"
   when:
     - cluster_etc_hosts | bool
 
@@ -131,7 +131,7 @@
     node_name: "{{ hostvars[item][cluster_hostname_fact] }}"
     username: "{{ cluster_user }}"
     password: "{{ cluster_user_pass }}"
-  with_items: "{{ play_hosts }}"
+  with_items: "{{ ansible_play_batch }}"
   when: not cluster_node_is_remote | bool
 
 - name: Set corosync redundant ring node ip if requested (from rrp_interface)
@@ -140,7 +140,8 @@
   when:
     - rrp_ip is not defined
     - rrp_interface is defined
-    - rrp_interface and 'ansible_'+rrp_interface in hostvars[inventory_hostname]
+    - (rrp_interface | default('', true) | length) > 0
+    - "'ansible_' + rrp_interface in hostvars[inventory_hostname]"
 
 - name: Validate redundant ring ip
   fail:
@@ -150,7 +151,7 @@
   when:
     - rrp_ip is defined
     - rrp_ip == ring0_ip
-  with_items: "{{ play_hosts }}"
+  with_items: "{{ ansible_play_batch }}"
   run_once: true
   delegate_to: 'localhost'
   any_errors_fatal: true
